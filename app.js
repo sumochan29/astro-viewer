@@ -1,86 +1,80 @@
 /* global AFRAME, THREE */
 
-const planets = [
-  { name: 'Mercury', color: '#b6a89e', radius: 0.17, orbit: 1.8, radiusKm: 2440, au: 0.387, year: '88 days', period: 87.97, rotation: 58.6, type: 'Rocky', tagline: 'Small, swift, and sun-baked.', description: 'The smallest planet races around the Sun in just 88 Earth days. Its surface is covered in ancient craters.', info: 'Smallest planet.\nA year lasts just 88 Earth days.\nSurface covered in ancient craters.' },
-  { name: 'Venus', color: '#dfb883', radius: 0.28, orbit: 2.65, radiusKm: 6052, au: 0.723, year: '225 days', period: 224.7, rotation: -243, type: 'Rocky', tagline: 'A world of clouds and extremes.', description: 'Venus is wrapped in thick clouds and has the hottest surface of any planet, even though Mercury is closer to the Sun.', info: 'Hottest planetary surface.\nThick clouds trap the heat.\nIt spins in the opposite direction.' },
-  { name: 'Earth', color: '#4c9bd2', radius: 0.31, orbit: 3.55, radiusKm: 6371, au: 1, year: '365 days', period: 365.25, rotation: 1, type: 'Rocky', tagline: 'Our pale blue home.', description: 'The only world we know of with life on its surface—and the only one with liquid water covering most of it.', info: 'Our pale blue home.\nLiquid water covers most of it.\nThe only known world with life.' },
-  { name: 'Mars', color: '#ce7153', radius: 0.23, orbit: 4.45, radiusKm: 3390, au: 1.524, year: '687 days', period: 686.98, rotation: 1.03, type: 'Rocky', tagline: 'A rusty desert with big ambitions.', description: 'Mars is home to giant volcanoes, deep canyons, and robotic explorers looking for clues about its watery past.', info: 'A rusty desert world.\nHome to giant volcanoes.\nExplored by robotic rovers.' },
-  { name: 'Jupiter', color: '#d7b89c', radius: 0.75, orbit: 5.75, radiusKm: 69911, au: 5.203, year: '11.9 years', period: 4332.59, rotation: 0.41, type: 'Gas giant', tagline: 'King of the planets.', description: 'Jupiter is the largest planet, with swirling cloud bands and a centuries-old storm called the Great Red Spot.', info: 'The largest planet.\nIts Great Red Spot is a huge storm.\nA gas giant with faint rings.' },
-  { name: 'Saturn', color: '#ddcc9e', radius: 0.63, orbit: 7.25, radiusKm: 58232, au: 9.537, year: '29.4 years', period: 10759.2, rotation: 0.44, type: 'Gas giant', tagline: 'A giant wearing rings of ice.', description: 'Saturn’s bright rings are made of countless pieces of ice and rock, from tiny grains to chunks as large as a house.', info: 'Famous for bright rings.\nRings are made of ice and rock.\nA giant planet of gas.' },
-  { name: 'Uranus', color: '#8ac9ce', radius: 0.46, orbit: 8.65, radiusKm: 25362, au: 19.19, year: '84 years', period: 30688.5, rotation: -0.72, type: 'Ice giant', tagline: 'The sideways-spinning ice giant.', description: 'Uranus rotates on its side, giving it some of the most extreme seasons in the solar system.', info: 'An ice giant with a blue-green hue.\nIt spins almost on its side.\nIts seasons last for years.' },
-  { name: 'Neptune', color: '#5679d6', radius: 0.45, orbit: 10.05, radiusKm: 24622, au: 30.07, year: '165 years', period: 60182, rotation: 0.67, type: 'Ice giant', tagline: 'A distant world of fast winds.', description: 'Neptune is so far from the Sun that it takes about 165 Earth years to complete one orbit. Its winds are among the fastest measured.', info: 'The most distant planet.\nA year lasts about 165 Earth years.\nKnown for extremely fast winds.' },
+const CONFIG = {
+  lightDistance: 36,
+  raycasterFar: 32,
+  pointerRaycasterFar: 14,
+  handRaycasterFar: 24,
+  viewerRigStart: { x: 0, y: 15, z: 24 },
+};
+
+const PLANET_DATA = [
+  { name: 'Mercury', radiusKm: 2440, au: 0.387, periodDays: 87.97, rotationHours: 1407.6, type: 'Rocky', color: '#b6a89e', tagline: 'Small, swift, and sun-baked.', description: 'The smallest planet races around the Sun in just 88 Earth days. Its surface is covered in ancient craters.', info: 'Smallest planet.\nA year lasts just 88 Earth days.\nSurface covered in ancient craters.' },
+  { name: 'Venus', radiusKm: 6052, au: 0.723, periodDays: 224.7, rotationHours: -5832.5, type: 'Rocky', color: '#dfb883', tagline: 'A world of clouds and extremes.', description: 'Venus is wrapped in thick clouds and has the hottest surface of any planet, even though Mercury is closer to the Sun.', info: 'Hottest planetary surface.\nThick clouds trap the heat.\nIt spins in the opposite direction.' },
+  { name: 'Earth', radiusKm: 6371, au: 1, periodDays: 365.25, rotationHours: 23.93, type: 'Rocky', color: '#4c9bd2', tagline: 'Our pale blue home.', description: 'The only world we know of with life on its surface—and the only one with liquid water covering most of it.', info: 'Our pale blue home.\nLiquid water covers most of it.\nThe only known world with life.' },
+  { name: 'Mars', radiusKm: 3390, au: 1.524, periodDays: 687, rotationHours: 24.62, type: 'Rocky', color: '#ce7153', tagline: 'A rusty desert with big ambitions.', description: 'Mars is home to giant volcanoes, deep canyons, and robotic explorers looking for clues about its watery past.', info: 'A rusty desert world.\nHome to giant volcanoes.\nExplored by robotic rovers.' },
+  { name: 'Jupiter', radiusKm: 69911, au: 5.203, periodDays: 4331, rotationHours: 9.93, type: 'Gas giant', color: '#d7b89c', tagline: 'King of the planets.', description: 'Jupiter is the largest planet, with swirling cloud bands and a centuries-old storm called the Great Red Spot.', info: 'The largest planet.\nIts Great Red Spot is a huge storm.\nA gas giant with faint rings.' },
+  { name: 'Saturn', radiusKm: 58232, au: 9.537, periodDays: 10747, rotationHours: 10.66, type: 'Gas giant', color: '#ddcc9e', tagline: 'A giant wearing rings of ice.', description: 'Saturn’s bright rings are made of countless pieces of ice and rock, from tiny grains to chunks as large as a house.', info: 'Famous for bright rings.\nRings are made of ice and rock.\nA giant planet of gas.' },
+  { name: 'Uranus', radiusKm: 25362, au: 19.19, periodDays: 30589, rotationHours: -17.24, type: 'Ice giant', color: '#8ac9ce', tagline: 'The sideways-spinning ice giant.', description: 'Uranus rotates on its side, giving it some of the most extreme seasons in the solar system.', info: 'An ice giant with a blue-green hue.\nIt spins almost on its side.\nIts seasons last for years.' },
+  { name: 'Neptune', radiusKm: 24622, au: 30.07, periodDays: 59800, rotationHours: 16.11, type: 'Ice giant', color: '#5679d6', tagline: 'A distant world of fast winds.', description: 'Neptune is so far from the Sun that it takes about 165 Earth years to complete one orbit. Its winds are among the fastest measured.', info: 'The most distant planet.\nA year lasts about 165 Earth years.\nKnown for extremely fast winds.' },
 ];
 
-const planetNodes = [];
-const ARTISTIC = { A: 0.4, B: 6 };
-const REAL = { kr: 0.0004, kd: 700 };
+const SCALE = {
+  artistic: { A: 0.4, B: 6, sunRadius: 2.8, labelOffset: 0.28 },
+};
 
-function artisticRadiusFromKm(radiusKm) {
-  return ARTISTIC.A * Math.pow(radiusKm / 6371, 0.45);
-}
-
-function artisticOrbitFromAU(au) {
-  return ARTISTIC.B * Math.pow(au, 0.5);
-}
-
-function realRadiusFromKm(radiusKm) {
-  return radiusKm * REAL.kr;
-}
-
-function realOrbitFromAU(au) {
-  return au * REAL.kd;
-}
-
-function getScaledPlanetValues(planet) {
-  if (realSpeed) {
-    return {
-      radius: realRadiusFromKm(planet.radiusKm),
-      orbit: realOrbitFromAU(planet.au),
-    };
-  }
-
+function getScale(mode = 'artistic') {
+  const settings = mode === 'artistic' ? SCALE.artistic : SCALE.artistic;
   return {
-    radius: artisticRadiusFromKm(planet.radiusKm),
-    orbit: artisticOrbitFromAU(planet.au),
+    planetRadius: (planet) => settings.A * Math.pow(planet.radiusKm / 6371, 0.45),
+    orbitRadius: (planet) => settings.B * Math.pow(planet.au, 0.5),
+    sunRadius: () => settings.sunRadius,
+    labelOffset: () => settings.labelOffset,
   };
 }
 
-function applyScaleMode() {
-  const sunBodies = sunRoot.querySelectorAll('a-sphere');
-  const corona = sunBodies[0];
-  const sun = sunBodies[1] || sunBodies[0];
-  const sunRadius = realSpeed ? 695700 * REAL.kr : 0.88;
+function checkInvariants(mode = 'artistic') {
+  const scale = getScale(mode);
+  const failures = [];
+  const radii = PLANET_DATA.map((planet) => scale.planetRadius(planet));
+  const orbitRadii = PLANET_DATA.map((planet) => scale.orbitRadius(planet));
+  const sunRadius = scale.sunRadius();
 
-  if (sun) {
-    sun.setAttribute('radius', String(sunRadius));
+  if (sunRadius < Math.max(...radii)) {
+    failures.push('sunRadius >= max(planetRadius)');
   }
 
-  if (corona) {
-    corona.setAttribute('radius', String(realSpeed ? sunRadius * 1.2 : 1.12));
-  }
-
-  const maxOrbit = Math.max(...planetNodes.map((node) => getScaledPlanetValues(node.planet).orbit));
-  const overviewDistance = realSpeed ? Math.max(28, maxOrbit * 0.75) : 24;
-  const overviewY = realSpeed ? 0 : 15;
-  const overviewRotation = realSpeed ? '0 0 0' : '-28 0 0';
-
-  solarModel.setAttribute('position', realSpeed ? '0 0 0' : '4 0 0');
-  viewerRig.setAttribute('position', `0 ${overviewY} ${overviewDistance}`);
-  viewerRig.setAttribute('rotation', overviewRotation);
-
-  planetNodes.forEach((node) => {
-    const values = getScaledPlanetValues(node.planet);
-    node.orbitRing.setAttribute('radius', values.orbit);
-    node.holder.setAttribute('position', `${values.orbit} 0 0`);
-    node.body.setAttribute('radius', values.radius);
-    if (node.rings) {
-      node.rings.setAttribute('radius', values.radius * 1.48);
-      node.rings.setAttribute('radius-tubular', values.radius * 0.24);
+  PLANET_DATA.forEach((planet, index) => {
+    if (orbitRadii[index] - radii[index] <= sunRadius) {
+      failures.push(`planet overlaps the Sun: ${planet.name}`);
     }
   });
 
-  updatePlanetLabels();
+  for (let i = 0; i < PLANET_DATA.length - 1; i += 1) {
+    if (orbitRadii[i + 1] - orbitRadii[i] <= radii[i] + radii[i + 1]) {
+      failures.push(`orbit spacing fails between ${PLANET_DATA[i].name} and ${PLANET_DATA[i + 1].name}`);
+    }
+  }
+
+  if (PLANET_DATA.some((planet, index) => index > 0 && planet.au <= PLANET_DATA[index - 1].au)) {
+    failures.push('orbit order invariant failed');
+  }
+
+  if (failures.length > 0) {
+    console.warn('checkInvariants failed:', failures);
+  } else {
+    console.info('checkInvariants passed');
+  }
+
+  return failures;
 }
+
+const planets = PLANET_DATA.map((planet) => ({
+  ...planet,
+  year: planet.periodDays < 365 ? `${Math.round(planet.periodDays)} days` : `${(planet.periodDays / 365.25).toFixed(1).replace(/\.0$/, '')} years`,
+  radius: getScale('artistic').planetRadius(planet),
+  orbit: getScale('artistic').orbitRadius(planet),
+}));
 
 const scene = document.querySelector('#solar-scene');
 const orbitRoot = document.querySelector('#orbits');
@@ -93,6 +87,8 @@ const intro = document.querySelector('.intro');
 const playButton = document.querySelector('#play-button');
 const speedButton = document.querySelector('#speed-button');
 const toast = document.querySelector('#toast');
+
+const planetNodes = [];
 
 let paused = false;
 let realSpeed = false;
@@ -121,11 +117,43 @@ AFRAME.registerComponent('starfield', {
   },
 });
 
-function addPlanet(planet, index) {
-  const values = getScaledPlanetValues(planet);
+function applyScaleMode() {
+  const scale = getScale('artistic');
+  const sunBodies = sunRoot.querySelectorAll('a-sphere');
+  const corona = sunBodies[0];
+  const sun = sunBodies[1] || sunBodies[0];
+  const sunRadius = scale.sunRadius();
 
+  if (sun) {
+    sun.setAttribute('radius', String(sunRadius));
+  }
+
+  if (corona) {
+    corona.setAttribute('radius', String(sunRadius * 1.2));
+  }
+
+  planets.forEach((planet) => {
+    planet.radius = scale.planetRadius(planet);
+    planet.orbit = scale.orbitRadius(planet);
+  });
+
+  planetNodes.forEach((node) => {
+    const radius = scale.planetRadius(node.planet);
+    const orbit = scale.orbitRadius(node.planet);
+    node.orbitRing.setAttribute('radius', orbit);
+    node.holder.setAttribute('position', `${orbit} 0 0`);
+    node.body.setAttribute('radius', radius);
+    node.label.setAttribute('position', `0 ${radius + scale.labelOffset()} 0`);
+    if (node.rings) {
+      node.rings.setAttribute('radius', radius * 1.48);
+      node.rings.setAttribute('radius-tubular', radius * 0.24);
+    }
+  });
+}
+
+function addPlanet(planet, index) {
   const orbitRing = document.createElement('a-torus');
-  orbitRing.setAttribute('radius', values.orbit);
+  orbitRing.setAttribute('radius', planet.orbit);
   orbitRing.setAttribute('radius-tubular', '0.006');
   orbitRing.setAttribute('segments-radial', '4');
   orbitRing.setAttribute('segments-tubular', '160');
@@ -142,11 +170,11 @@ function addPlanet(planet, index) {
   orbit.setAttribute('rotation', `0 ${index * 27} 0`);
 
   const holder = document.createElement('a-entity');
-  holder.setAttribute('position', `${values.orbit} 0 0`);
+  holder.setAttribute('position', `${planet.orbit} 0 0`);
   const body = document.createElement('a-sphere');
   body.classList.add('interactive', 'planet-body');
   body.dataset.planet = planet.name;
-  body.setAttribute('radius', values.radius);
+  body.setAttribute('radius', planet.radius);
   body.setAttribute('material', `color: ${planet.color}; emissive: ${planet.color}; emissiveIntensity: 0.16; roughness: 0.85; metalness: 0.02`);
   body.setAttribute('segments-width', '28');
   body.setAttribute('segments-height', '20');
@@ -160,8 +188,8 @@ function addPlanet(planet, index) {
   let rings;
   if (planet.name === 'Saturn') {
     rings = document.createElement('a-torus');
-    rings.setAttribute('radius', values.radius * 1.48);
-    rings.setAttribute('radius-tubular', values.radius * 0.24);
+    rings.setAttribute('radius', planet.radius * 1.48);
+    rings.setAttribute('radius-tubular', planet.radius * 0.24);
     rings.setAttribute('segments-radial', '3');
     rings.setAttribute('segments-tubular', '40');
     rings.setAttribute('rotation', '72 0 12');
@@ -173,11 +201,12 @@ function addPlanet(planet, index) {
   label.setAttribute('value', planet.name.toUpperCase());
   label.setAttribute('align', 'center');
   label.setAttribute('color', '#d9e5f4');
-  label.setAttribute('width', '4.8');
-  label.setAttribute('scale', '1.8 1.8 1.8');
+  label.setAttribute('width', '2.4');
+  label.setAttribute('position', `0 ${planet.radius + getScale('artistic').labelOffset()} 0`);
+  label.setAttribute('scale', '0.56 0.56 0.56');
   label.setAttribute('visible', 'false');
   label.classList.add('planet-label');
-  orbitRoot.appendChild(label);
+  holder.appendChild(label);
   orbit.appendChild(holder);
   orbitRoot.appendChild(orbit);
 
@@ -193,13 +222,13 @@ function addPlanet(planet, index) {
 
 function addSun() {
   const corona = document.createElement('a-sphere');
-  corona.setAttribute('radius', '1.12');
+  corona.setAttribute('radius', String(getScale('artistic').sunRadius() * 1.2));
   corona.setAttribute('position', '0 2.4 0');
   corona.setAttribute('material', 'color: #ffbf72; opacity: 0.12; transparent: true; shader: flat; side: double');
   const sun = document.createElement('a-sphere');
   sun.classList.add('interactive');
   sun.dataset.planet = 'Sun';
-  sun.setAttribute('radius', '0.88');
+  sun.setAttribute('radius', String(getScale('artistic').sunRadius()));
   sun.setAttribute('position', '0 2.4 0');
   sun.setAttribute('material', 'color: #ffcc83; emissive: #ff9d42; emissiveIntensity: 0.65; roughness: 1');
   sun.addEventListener('click', () => selectPlanet({ name: 'Sun', type: 'Star', year: 'About 225 million years', tagline: 'The star at the center of it all.', description: 'Our Sun is a star that holds the solar system together with gravity and provides the light and heat that make life on Earth possible.', info: 'The star at the center.\nIts light takes about 8 minutes to reach Earth.\nContains more than 99% of the system’s mass.' }));
@@ -240,6 +269,7 @@ planets.forEach((planet, index) => {
   orbit.setAttribute('planet-orbit', `period: ${planet.period}; phase: ${index * 27}`);
 });
 addSun();
+checkInvariants('artistic');
 solarModel.setAttribute('planet-label-sync', '');
 applyScaleMode();
 
@@ -254,10 +284,10 @@ function updatePlanetLabels() {
   camera.object3D.getWorldPosition(cameraWorld);
 
   planetNodes.forEach((node) => {
-    const values = getScaledPlanetValues(node.planet);
+    const values = getScale('artistic');
     const bodyWorld = new THREE.Vector3();
     node.body.object3D.getWorldPosition(bodyWorld);
-    const offset = Math.max(values.radius + 0.9, 1.2);
+    const offset = Math.max(values.planetRadius(node.planet) + values.labelOffset(), 1.2);
     const desiredWorld = bodyWorld.clone();
     desiredWorld.y += offset;
 
@@ -266,7 +296,7 @@ function updatePlanetLabels() {
     node.label.object3D.lookAt(cameraWorld);
 
     const distance = Math.max(cameraWorld.distanceTo(bodyWorld), 1);
-    const zoomScale = (realSpeed ? 1.8 : 2.6) * (18 / distance);
+    const zoomScale = 1.8 * (18 / distance);
     node.label.setAttribute('scale', `${zoomScale} ${zoomScale} ${zoomScale}`);
     node.label.setAttribute('visible', showLabels ? 'true' : 'false');
   });
@@ -312,9 +342,8 @@ function returnOverview() {
   updateVrInfo(null);
   if (!isVr) {
     camera.setAttribute('look-controls', 'enabled', true);
-    applyScaleMode();
-    viewerRig.setAttribute('animation__focus-position', `property: position; to: 0 ${realSpeed ? 0 : 15} ${realSpeed ? Math.max(28, Math.max(...planetNodes.map((node) => getScaledPlanetValues(node.planet).orbit)) * 0.75) : 24}; dur: 900; easing: easeInOutCubic`);
-    viewerRig.setAttribute('animation__focus-rotation', `property: rotation; to: ${realSpeed ? '0 0 0' : '-28 0 0'}; dur: 900; easing: easeInOutCubic`);
+    viewerRig.setAttribute('animation__focus-position', 'property: position; to: 0 15 24; dur: 900; easing: easeInOutCubic');
+    viewerRig.setAttribute('animation__focus-rotation', 'property: rotation; to: -28 0 0; dur: 900; easing: easeInOutCubic');
   }
 }
 
@@ -341,7 +370,6 @@ function toggleSpeed() {
   document.querySelector('#speed-label').textContent = label;
   speedButton.dataset.mode = realSpeed ? 'real' : 'artistic';
   document.querySelector('#vr-speed-label').setAttribute('value', realSpeed ? 'REAL SPEED' : 'ARTISTIC');
-  applyScaleMode();
   showToast(realSpeed ? 'REAL MODE: TRUE-SCALE PLANETS' : 'ARTISTIC MODE: COMPRESSED VIEW');
 }
 
