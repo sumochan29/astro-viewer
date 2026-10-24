@@ -59,11 +59,17 @@ function applyScaleMode() {
     corona.setAttribute('radius', String(realSpeed ? sunRadius * 1.2 : 1.12));
   }
 
+  const maxOrbit = Math.max(...planetNodes.map((node) => getScaledPlanetValues(node.planet).orbit));
+  const overviewDistance = realSpeed ? Math.max(28, maxOrbit * 0.75) : 24;
+  const overviewY = realSpeed ? 0 : 15;
+  const overviewRotation = realSpeed ? '0 0 0' : '-28 0 0';
+
+  solarModel.setAttribute('position', realSpeed ? '0 0 0' : '4 0 0');
+  viewerRig.setAttribute('position', `0 ${overviewY} ${overviewDistance}`);
+  viewerRig.setAttribute('rotation', overviewRotation);
+
   planetNodes.forEach((node) => {
     const values = getScaledPlanetValues(node.planet);
-    const selected = selectedPlanet && selectedPlanet.name === node.planet.name;
-    const shouldShowLabel = realSpeed || selected;
-
     node.orbitRing.setAttribute('radius', values.orbit);
     node.holder.setAttribute('position', `${values.orbit} 0 0`);
     node.body.setAttribute('radius', values.radius);
@@ -71,9 +77,11 @@ function applyScaleMode() {
       node.rings.setAttribute('radius', values.radius * 1.48);
       node.rings.setAttribute('radius-tubular', values.radius * 0.24);
     }
-    node.label.setAttribute('position', `0 ${values.radius + 0.28} 0`);
-    node.label.setAttribute('visible', shouldShowLabel ? 'true' : 'false');
+    node.label.setAttribute('position', `0 ${Math.max(values.radius + 0.28, 0.4)} 0`);
+    node.label.setAttribute('look-at', '#camera');
   });
+
+  updatePlanetLabels();
 }
 
 const scene = document.querySelector('#solar-scene');
@@ -236,6 +244,14 @@ function updateVrInfo(planet) {
   document.querySelector('#vr-info').setAttribute('value', planet ? (planet.info || `${planet.tagline}\n${planet.description}`) : 'Look at a planet to explore it.\nPress a control to change the simulation.');
 }
 
+function updatePlanetLabels() {
+  const showLabels = intro.classList.contains('dismissed');
+  document.querySelectorAll('.planet-label').forEach((label) => {
+    label.setAttribute('look-at', '#camera');
+    label.setAttribute('visible', showLabels ? 'true' : 'false');
+  });
+}
+
 function selectPlanet(planet) {
   selectedPlanet = planet;
   intro.classList.add('dismissed');
@@ -247,7 +263,7 @@ function selectPlanet(planet) {
   document.querySelector('#planet-year').textContent = planet.year;
   document.querySelector('#planet-type').textContent = planet.type;
   selectedCard.classList.add('visible');
-  document.querySelectorAll('.planet-label').forEach((label) => label.setAttribute('visible', label.parentElement.querySelector('.planet-body')?.dataset.planet === planet.name));
+  updatePlanetLabels();
   updateVrInfo(planet);
   if (!isVr && planet.name !== 'Sun') focusPlanet(planet);
 }
@@ -272,12 +288,13 @@ function returnOverview() {
   selectedPlanet = null;
   selectedCard.classList.remove('visible');
   intro.classList.remove('dismissed');
-  document.querySelectorAll('.planet-label').forEach((label) => label.setAttribute('visible', false));
+  updatePlanetLabels();
   updateVrInfo(null);
   if (!isVr) {
     camera.setAttribute('look-controls', 'enabled', true);
-    viewerRig.setAttribute('animation__focus-position', 'property: position; to: 0 15 24; dur: 900; easing: easeInOutCubic');
-    viewerRig.setAttribute('animation__focus-rotation', 'property: rotation; to: -28 0 0; dur: 900; easing: easeInOutCubic');
+    applyScaleMode();
+    viewerRig.setAttribute('animation__focus-position', `property: position; to: 0 ${realSpeed ? 0 : 15} ${realSpeed ? Math.max(28, Math.max(...planetNodes.map((node) => getScaledPlanetValues(node.planet).orbit)) * 0.75) : 24}; dur: 900; easing: easeInOutCubic`);
+    viewerRig.setAttribute('animation__focus-rotation', `property: rotation; to: ${realSpeed ? '0 0 0' : '-28 0 0'}; dur: 900; easing: easeInOutCubic`);
   }
 }
 
@@ -316,6 +333,7 @@ document.querySelector('#return-button').addEventListener('click', returnOvervie
 document.querySelector('#close-card').addEventListener('click', returnOverview);
 document.querySelector('#explore-button').addEventListener('click', () => {
   intro.classList.add('dismissed');
+  updatePlanetLabels();
   showToast('SELECT ANY PLANET TO LEARN MORE');
 });
 document.querySelector('#help-button').addEventListener('click', () => { document.querySelector('#help-popover').hidden = false; });
