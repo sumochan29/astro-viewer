@@ -77,8 +77,6 @@ function applyScaleMode() {
       node.rings.setAttribute('radius', values.radius * 1.48);
       node.rings.setAttribute('radius-tubular', values.radius * 0.24);
     }
-    node.label.setAttribute('position', `0 ${Math.max(values.radius + 0.28, 0.4)} 0`);
-    node.label.setAttribute('look-at', '#camera');
   });
 
   updatePlanetLabels();
@@ -175,12 +173,11 @@ function addPlanet(planet, index) {
   label.setAttribute('value', planet.name.toUpperCase());
   label.setAttribute('align', 'center');
   label.setAttribute('color', '#d9e5f4');
-  label.setAttribute('width', '2.4');
-  label.setAttribute('position', `0 ${values.radius + 0.28} 0`);
-  label.setAttribute('scale', '0.56 0.56 0.56');
+  label.setAttribute('width', '4.8');
+  label.setAttribute('scale', '1.8 1.8 1.8');
   label.setAttribute('visible', 'false');
   label.classList.add('planet-label');
-  holder.appendChild(label);
+  orbitRoot.appendChild(label);
   orbit.appendChild(holder);
   orbitRoot.appendChild(orbit);
 
@@ -231,12 +228,19 @@ AFRAME.registerComponent('planet-orbit', {
   },
 });
 
+AFRAME.registerComponent('planet-label-sync', {
+  tick() {
+    updatePlanetLabels();
+  },
+});
+
 planets.forEach((planet, index) => {
   addPlanet(planet, index);
   const orbit = document.querySelector(`#orbit-${planet.name.toLowerCase()}`);
   orbit.setAttribute('planet-orbit', `period: ${planet.period}; phase: ${index * 27}`);
 });
 addSun();
+solarModel.setAttribute('planet-label-sync', '');
 applyScaleMode();
 
 function updateVrInfo(planet) {
@@ -245,10 +249,26 @@ function updateVrInfo(planet) {
 }
 
 function updatePlanetLabels() {
-  const showLabels = intro.classList.contains('dismissed');
-  document.querySelectorAll('.planet-label').forEach((label) => {
-    label.setAttribute('look-at', '#camera');
-    label.setAttribute('visible', showLabels ? 'true' : 'false');
+  const showLabels = intro.classList.contains('dismissed') || realSpeed;
+  const cameraWorld = new THREE.Vector3();
+  camera.object3D.getWorldPosition(cameraWorld);
+
+  planetNodes.forEach((node) => {
+    const values = getScaledPlanetValues(node.planet);
+    const bodyWorld = new THREE.Vector3();
+    node.body.object3D.getWorldPosition(bodyWorld);
+    const offset = Math.max(values.radius + 0.9, 1.2);
+    const desiredWorld = bodyWorld.clone();
+    desiredWorld.y += offset;
+
+    const localPosition = orbitRoot.object3D.worldToLocal(desiredWorld.clone());
+    node.label.object3D.position.copy(localPosition);
+    node.label.object3D.lookAt(cameraWorld);
+
+    const distance = Math.max(cameraWorld.distanceTo(bodyWorld), 1);
+    const zoomScale = (realSpeed ? 1.8 : 2.6) * (18 / distance);
+    node.label.setAttribute('scale', `${zoomScale} ${zoomScale} ${zoomScale}`);
+    node.label.setAttribute('visible', showLabels ? 'true' : 'false');
   });
 }
 
