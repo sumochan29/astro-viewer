@@ -89,6 +89,7 @@ const intro = document.querySelector('.intro');
 const playButton = document.querySelector('#play-button');
 const speedButton = document.querySelector('#speed-button');
 const toast = document.querySelector('#toast');
+const helpPopover = document.querySelector('#help-popover');
 const vignette = document.querySelector('.scene-vignette');
 
 const planetNodes = [];
@@ -548,6 +549,19 @@ function showToast(message) {
   toastTimer = setTimeout(() => toast.classList.remove('visible'), 2300);
 }
 
+function isMetaQuestDevice() {
+  const userAgent = navigator.userAgent || '';
+  const brands = navigator.userAgentData?.brands ? navigator.userAgentData.brands.map((brand) => brand.brand).join(' ') : '';
+  return /(Quest|Oculus|Meta Quest|MetaQuest)/i.test(userAgent + ' ' + brands);
+}
+
+function showQuestHelp() {
+  if (!helpPopover || !isMetaQuestDevice()) return;
+  helpPopover.hidden = false;
+  helpPopover.querySelector('p.eyebrow').textContent = 'META QUEST CONTROLS';
+  showToast('QUEST MODE: LOOK AND TRIGGER TO EXPLORE');
+}
+
 function togglePause() {
   paused = !paused;
   const label = paused ? 'PLAY' : 'PAUSE';
@@ -631,8 +645,12 @@ scene.addEventListener('exit-vr', () => {
 
 if (scene.hasLoaded) {
   initializeDesktopCamera();
+  showQuestHelp();
 } else {
-  scene.addEventListener('loaded', initializeDesktopCamera, { once: true });
+  scene.addEventListener('loaded', () => {
+    initializeDesktopCamera();
+    showQuestHelp();
+  }, { once: true });
 }
 
 window.addEventListener('keydown', (event) => {
