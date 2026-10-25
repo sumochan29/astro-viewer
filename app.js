@@ -479,11 +479,8 @@ function updatePlanetLabels() {
     const bodyWorld = new THREE.Vector3();
     node.body.object3D.getWorldPosition(bodyWorld);
     const offset = Math.max(values.planetRadius(node.planet) + values.labelOffset(), 1.2);
-    const desiredWorld = bodyWorld.clone();
-    desiredWorld.y += offset;
 
-    const localPosition = orbitRoot.object3D.worldToLocal(desiredWorld.clone());
-    node.label.object3D.position.copy(localPosition);
+    node.label.object3D.position.set(0, offset, 0);
     node.label.object3D.lookAt(cameraWorld);
 
     const distance = Math.max(cameraWorld.distanceTo(bodyWorld), 1);
