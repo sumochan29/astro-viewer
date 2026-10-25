@@ -199,6 +199,13 @@ function updateDesktopCamera(delta) {
 }
 
 function initializeDesktopCamera() {
+  if (AFRAME.utils.device.isMobile()) {
+    camera.setAttribute('look-controls', 'enabled', true);
+    cameraControl.initialized = true;
+    cameraControl.mode = 'title';
+    return;
+  }
+
   const position = new THREE.Vector3();
   viewerRig.object3D.getWorldPosition(position);
   cameraControl.target.copy(getOverviewTarget());
@@ -604,7 +611,7 @@ scene.addEventListener('exit-vr', () => {
   viewerRig.setAttribute('rotation', '-28 0 0');
   camera.setAttribute('position', '0 0 0');
   camera.setAttribute('rotation', '0 0 0');
-  camera.setAttribute('look-controls', 'enabled', false);
+  camera.setAttribute('look-controls', 'enabled', !AFRAME.utils.device.isMobile());
   const position = new THREE.Vector3();
   viewerRig.object3D.getWorldPosition(position);
   cameraControl.target.copy(getOverviewTarget());
