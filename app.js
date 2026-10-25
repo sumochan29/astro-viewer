@@ -367,7 +367,7 @@ function addPlanet(planet, index) {
   body.classList.add('interactive', 'planet-body');
   body.dataset.planet = planet.name;
   body.setAttribute('radius', planet.radius);
-  body.setAttribute('material', `color: ${planet.color}; emissive: ${planet.color}; emissiveIntensity: 0.16; roughness: 0.85; metalness: 0.02`);
+  body.setAttribute('material', `color: ${planet.color}; emissive: ${planet.color}; emissiveIntensity: 0.42; roughness: 0.62; metalness: 0.05`);
   body.setAttribute('segments-width', '28');
   body.setAttribute('segments-height', '20');
   body.setAttribute('shadow', 'cast: false; receive: false');
