@@ -89,6 +89,7 @@ const intro = document.querySelector('.intro');
 const playButton = document.querySelector('#play-button');
 const speedButton = document.querySelector('#speed-button');
 const toast = document.querySelector('#toast');
+const vignette = document.querySelector('.scene-vignette');
 
 const planetNodes = [];
 
@@ -530,6 +531,7 @@ function returnOverview() {
     const overview = cameraControl.overview || { distance: 43 };
     transitionCamera('explore', overview.distance, false, overview);
   }
+  vignette.classList.add('hidden');
 }
 
 function showToast(message) {
@@ -566,6 +568,7 @@ document.querySelector('#return-button').addEventListener('click', returnOvervie
 document.querySelector('#close-card').addEventListener('click', returnOverview);
 document.querySelector('#explore-button').addEventListener('click', () => {
   intro.classList.add('dismissed');
+  vignette.classList.add('hidden');
   const overview = cameraControl.overview || { distance: 43 };
   transitionCamera('explore', overview.distance, false, overview);
   updatePlanetLabels();
