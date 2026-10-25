@@ -71,6 +71,8 @@ function checkInvariants(mode = 'artistic') {
 
 const planets = PLANET_DATA.map((planet) => ({
   ...planet,
+  period: planet.periodDays,
+  rotation: planet.rotationHours,
   year: planet.periodDays < 365 ? `${Math.round(planet.periodDays)} days` : `${(planet.periodDays / 365.25).toFixed(1).replace(/\.0$/, '')} years`,
   radius: getScale('artistic').planetRadius(planet),
   orbit: getScale('artistic').orbitRadius(planet),
@@ -94,7 +96,196 @@ let paused = false;
 let realSpeed = false;
 let selectedPlanet = null;
 let isVr = false;
+let vrReturnMode = 'title';
 let toastTimer;
+const cameraLooker = new THREE.Camera();
+const cameraControl = {
+  mode: 'title',
+  target: new THREE.Vector3(),
+  azimuth: 0,
+  elevation: 0,
+  distance: 0,
+  minDistance: 1.2,
+  maxDistance: 100,
+  overview: null,
+  transition: null,
+};
+
+function getOverviewTarget() {
+  const target = new THREE.Vector3();
+  solarModel.object3D.getWorldPosition(target);
+  target.y += 2.4;
+  return target;
+}
+
+function getFocusedBody() {
+  if (!selectedPlanet || selectedPlanet.name === 'Sun') return null;
+  return document.querySelector(`[data-planet="${selectedPlanet.name}"]`);
+}
+
+function getCameraDestination() {
+  if (cameraControl.mode === 'focus') {
+    const body = getFocusedBody();
+    if (body) {
+      const target = new THREE.Vector3();
+      body.object3D.getWorldPosition(target);
+      return target;
+    }
+  }
+  return getOverviewTarget();
+}
+
+function applyDesktopCamera() {
+  const horizontalDistance = cameraControl.distance * Math.cos(cameraControl.elevation);
+  const position = new THREE.Vector3(
+    cameraControl.target.x + horizontalDistance * Math.sin(cameraControl.azimuth),
+    cameraControl.target.y + cameraControl.distance * Math.sin(cameraControl.elevation),
+    cameraControl.target.z + horizontalDistance * Math.cos(cameraControl.azimuth),
+  );
+  cameraLooker.position.copy(position);
+  cameraLooker.lookAt(cameraControl.target);
+  viewerRig.object3D.position.copy(position);
+  viewerRig.object3D.rotation.copy(cameraLooker.rotation);
+  viewerRig.object3D.updateMatrixWorld(true);
+}
+
+function rememberOverview() {
+  cameraControl.overview = {
+    azimuth: cameraControl.azimuth,
+    elevation: cameraControl.elevation,
+    distance: cameraControl.distance,
+  };
+}
+
+function transitionCamera(mode, distance, saveOverview = false, view = null) {
+  if (!cameraControl.initialized) return;
+  if (saveOverview) rememberOverview();
+  cameraControl.mode = mode;
+  cameraControl.minDistance = mode === 'focus' && selectedPlanet
+    ? Math.max(1.2, (selectedPlanet.radius || 0.4) * 1.4)
+    : 5;
+  const startTarget = cameraControl.target.clone();
+  cameraControl.transition = {
+    elapsed: 0,
+    duration: 900,
+    startTarget,
+    startAzimuth: cameraControl.azimuth,
+    startElevation: cameraControl.elevation,
+    startDistance: cameraControl.distance,
+    endAzimuth: view?.azimuth ?? cameraControl.azimuth,
+    endElevation: view?.elevation ?? cameraControl.elevation,
+    endDistance: THREE.MathUtils.clamp(distance, cameraControl.minDistance, cameraControl.maxDistance),
+  };
+}
+
+function updateDesktopCamera(delta) {
+  if (!cameraControl.initialized || isVr) return;
+  const destination = getCameraDestination();
+  if (cameraControl.transition) {
+    const transition = cameraControl.transition;
+    transition.elapsed += delta;
+    const progress = THREE.MathUtils.clamp(transition.elapsed / transition.duration, 0, 1);
+    const eased = progress * progress * (3 - 2 * progress);
+    cameraControl.target.lerpVectors(transition.startTarget, destination, eased);
+    cameraControl.azimuth = THREE.MathUtils.lerp(transition.startAzimuth, transition.endAzimuth, eased);
+    cameraControl.elevation = THREE.MathUtils.lerp(transition.startElevation, transition.endElevation, eased);
+    cameraControl.distance = THREE.MathUtils.lerp(transition.startDistance, transition.endDistance, eased);
+    if (progress === 1) cameraControl.transition = null;
+  } else {
+    cameraControl.target.copy(destination);
+  }
+  applyDesktopCamera();
+}
+
+function initializeDesktopCamera() {
+  const position = new THREE.Vector3();
+  viewerRig.object3D.getWorldPosition(position);
+  cameraControl.target.copy(getOverviewTarget());
+  const offset = position.sub(cameraControl.target);
+  cameraControl.distance = offset.length();
+  cameraControl.azimuth = Math.atan2(offset.x, offset.z);
+  cameraControl.elevation = Math.asin(THREE.MathUtils.clamp(offset.y / cameraControl.distance, -1, 1));
+  cameraControl.mode = 'title';
+  cameraControl.initialized = true;
+  cameraControl.overview = {
+    azimuth: cameraControl.azimuth,
+    elevation: cameraControl.elevation,
+    distance: 43,
+  };
+  cameraControl.minDistance = 5;
+  cameraControl.transition = null;
+  camera.setAttribute('look-controls', 'enabled', false);
+  viewerRig.setAttribute('desktop-camera-controller', '');
+
+  const canvas = scene.canvas;
+  let drag = null;
+  let dragged = false;
+  window.addEventListener('pointermove', (event) => {
+    if (isVr || !drag || event.pointerId !== drag.pointerId) return;
+    const deltaX = event.clientX - drag.x;
+    const deltaY = event.clientY - drag.y;
+    if (Math.abs(event.clientX - drag.startX) + Math.abs(event.clientY - drag.startY) > 3) dragged = true;
+    drag.x = event.clientX;
+    drag.y = event.clientY;
+    if (!dragged) return;
+    cameraControl.transition = null;
+    cameraControl.azimuth -= deltaX * 0.005;
+    cameraControl.elevation = THREE.MathUtils.clamp(cameraControl.elevation + deltaY * 0.005, -1.35, 1.35);
+    if (cameraControl.mode === 'explore') rememberOverview();
+  });
+  window.addEventListener('pointerup', (event) => {
+    if (drag && event.pointerId === drag.pointerId) drag = null;
+  });
+  canvas.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 || isVr) return;
+    drag = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      startX: event.clientX,
+      startY: event.clientY,
+    };
+    dragged = false;
+  });
+  canvas.addEventListener('wheel', (event) => {
+    if (isVr) return;
+    event.preventDefault();
+    cameraControl.transition = null;
+    cameraControl.distance = THREE.MathUtils.clamp(
+      cameraControl.distance * Math.exp(event.deltaY * 0.001),
+      cameraControl.minDistance,
+      cameraControl.maxDistance,
+    );
+    if (cameraControl.mode === 'explore') rememberOverview();
+  }, { passive: false });
+  canvas.addEventListener('click', (event) => {
+    if (dragged) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      dragged = false;
+      return;
+    }
+    if (!selectedPlanet || isVr) return;
+    const bounds = canvas.getBoundingClientRect();
+    const pointer = new THREE.Vector2(
+      ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
+      -((event.clientY - bounds.top) / bounds.height) * 2 + 1,
+    );
+    camera.object3D.updateMatrixWorld(true);
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(pointer, camera.object3D);
+    const interactiveObjects = Array.from(scene.querySelectorAll('.interactive'))
+      .map((entity) => entity.object3D)
+      .filter(Boolean);
+    if (raycaster.intersectObjects(interactiveObjects, true).length === 0) returnOverview();
+  }, true);
+}
+
+AFRAME.registerComponent('desktop-camera-controller', {
+  tick(time, delta) {
+    updateDesktopCamera(delta);
+  },
+});
 
 AFRAME.registerComponent('starfield', {
   init() {
@@ -319,31 +510,28 @@ function selectPlanet(planet) {
 }
 
 function focusPlanet(planet) {
-  const body = document.querySelector(`[data-planet="${planet.name}"]`);
-  if (!body) return;
-  const target = new THREE.Vector3();
-  body.object3D.getWorldPosition(target);
-  const position = target.clone().add(new THREE.Vector3(0.12, 0.5, 1).normalize().multiplyScalar(Math.max(2.8, planet.radius * 5)));
-  const looker = new THREE.Camera();
-  looker.position.copy(position);
-  looker.lookAt(target);
-  const rotation = looker.rotation;
-  camera.setAttribute('look-controls', 'enabled', false);
-  camera.object3D.rotation.set(0, 0, 0);
-  viewerRig.setAttribute('animation__focus-position', `property: position; to: ${position.x} ${position.y} ${position.z}; dur: 950; easing: easeInOutCubic`);
-  viewerRig.setAttribute('animation__focus-rotation', `property: rotation; to: ${THREE.MathUtils.radToDeg(rotation.x)} ${THREE.MathUtils.radToDeg(rotation.y)} 0; dur: 950; easing: easeInOutCubic`);
+  if (!getFocusedBody()) return;
+  if (cameraControl.mode === 'title') {
+    cameraControl.overview = {
+      azimuth: cameraControl.azimuth,
+      elevation: cameraControl.elevation,
+      distance: 43,
+    };
+  }
+  transitionCamera('focus', Math.max(2.8, planet.radius * 5), cameraControl.mode === 'explore');
 }
 
 function returnOverview() {
   selectedPlanet = null;
   selectedCard.classList.remove('visible');
-  intro.classList.remove('dismissed');
   updatePlanetLabels();
   updateVrInfo(null);
-  if (!isVr) {
-    camera.setAttribute('look-controls', 'enabled', true);
-    viewerRig.setAttribute('animation__focus-position', 'property: position; to: 0 15 24; dur: 900; easing: easeInOutCubic');
-    viewerRig.setAttribute('animation__focus-rotation', 'property: rotation; to: -28 0 0; dur: 900; easing: easeInOutCubic');
+  if (isVr) {
+    cameraControl.mode = 'explore';
+    vrReturnMode = 'explore';
+  } else {
+    const overview = cameraControl.overview || { distance: 43 };
+    transitionCamera('explore', overview.distance, false, overview);
   }
 }
 
@@ -381,6 +569,8 @@ document.querySelector('#return-button').addEventListener('click', returnOvervie
 document.querySelector('#close-card').addEventListener('click', returnOverview);
 document.querySelector('#explore-button').addEventListener('click', () => {
   intro.classList.add('dismissed');
+  const overview = cameraControl.overview || { distance: 43 };
+  transitionCamera('explore', overview.distance, false, overview);
   updatePlanetLabels();
   showToast('SELECT ANY PLANET TO LEARN MORE');
 });
@@ -388,12 +578,11 @@ document.querySelector('#help-button').addEventListener('click', () => { documen
 document.querySelector('#close-help').addEventListener('click', () => { document.querySelector('#help-popover').hidden = true; });
 
 scene.addEventListener('enter-vr', () => {
+  vrReturnMode = cameraControl.mode;
   isVr = true;
   document.querySelector('#vr-hud').setAttribute('visible', true);
   document.querySelector('#gaze-cursor').setAttribute('visible', true);
   document.querySelector('#gaze-cursor').setAttribute('cursor', 'enabled', true);
-  viewerRig.removeAttribute('animation__focus-position');
-  viewerRig.removeAttribute('animation__focus-rotation');
   solarModel.setAttribute('scale', '0.22 0.22 0.22');
   solarModel.setAttribute('position', '0 1.05 0');
   viewerRig.setAttribute('position', '0 0 4');
@@ -415,9 +604,29 @@ scene.addEventListener('exit-vr', () => {
   viewerRig.setAttribute('rotation', '-28 0 0');
   camera.setAttribute('position', '0 0 0');
   camera.setAttribute('rotation', '0 0 0');
-  camera.setAttribute('look-controls', 'enabled', true);
-  if (selectedPlanet && selectedPlanet.name !== 'Sun') focusPlanet(selectedPlanet);
+  camera.setAttribute('look-controls', 'enabled', false);
+  const position = new THREE.Vector3();
+  viewerRig.object3D.getWorldPosition(position);
+  cameraControl.target.copy(getOverviewTarget());
+  const offset = position.sub(cameraControl.target);
+  cameraControl.distance = offset.length();
+  cameraControl.azimuth = Math.atan2(offset.x, offset.z);
+  cameraControl.elevation = Math.asin(THREE.MathUtils.clamp(offset.y / cameraControl.distance, -1, 1));
+  cameraControl.transition = null;
+  cameraControl.mode = 'title';
+  if (selectedPlanet && selectedPlanet.name !== 'Sun') {
+    transitionCamera('focus', Math.max(2.8, selectedPlanet.radius * 5));
+  } else if (vrReturnMode === 'explore') {
+    const overview = cameraControl.overview || { distance: 43 };
+    transitionCamera('explore', overview.distance, false, overview);
+  }
 });
+
+if (scene.hasLoaded) {
+  initializeDesktopCamera();
+} else {
+  scene.addEventListener('loaded', initializeDesktopCamera, { once: true });
+}
 
 window.addEventListener('keydown', (event) => {
   if (event.code === 'Space' && event.target.tagName !== 'BUTTON') {
